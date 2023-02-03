@@ -27,12 +27,13 @@
               <div slot="tip" class="el-upload__tip">只能上传xlsx/xls文件</div>
             </el-upload>
           </el-col>
-           <el-col :span="6">
-              <input type="file" name="file" @change="changeFile"   />
-              <!-- <input type="file" name="file" @change="changeFiles" webkitdirectory  /> -->
-              <!-- <el-input v-model="filesPath" placeholder="请输入模板存放路径，例如:C:\Users\xxx\Desktop\model"></el-input> -->
-            </el-col>
-            <!-- <el-col :span="2">
+          <el-col :span="6">
+            <!-- <input type="file" name="file" @change="changeFile"   /> -->
+            <!-- <input type="file" name="file" @change="changeFiles" webkitdirectory  /> -->
+            <input type="file" name="file" @change="changeOnlineFile" />
+            <!-- <el-input v-model="filesPath" placeholder="请输入模板存放路径，例如:C:\Users\xxx\Desktop\model"></el-input> -->
+          </el-col>
+          <!-- <el-col :span="2">
               <el-button  @click="showModel" plain>主要按钮</el-button>
             </el-col> -->
         </el-row>
@@ -100,8 +101,8 @@ export default {
       tableData: [],
       wordText: "",
       wordURL: "",
-      filesPath:"",
-      modelUrl:"model_1.docx",
+      filesPath: "",
+      modelUrl: "model_1.docx",
       options: [
         {
           value: "选项1",
@@ -296,11 +297,78 @@ export default {
     },
     changeFiles(event) {
       console.log(event);
+      var reader = new FileReader();
+      reader.readAsDataURL(event.srcElement.files[0]);
+      var me = this;
+      reader.onload = function () {
+        console.log(reader)
+      }
     },
-    showModel(){
-      if(this.filesPath==="")return;
-      let path  = require(this.filesPath);
-      console.log(path);
+    showModel() {
+      if (this.filesPath === "") return;
+      //let path  = require(this.filesPath);
+      //console.log(path);
+
+
+
+    },
+    changeOnlineFile(event) {
+      let that =this;
+      let file = event.target.files[0];
+      var reader = new FileReader();
+      reader.onload = function (resultObj) {
+        console.log(resultObj.target.result)
+        let zip = new PizZip(resultObj.target.result);
+        console.log(zip);
+        // 创建并加载docxtemplater实例对象
+        let doc = new docxtemplater().loadZip(zip);
+        doc.setOptions({
+          nullGetter: function () {
+            return "";
+          },
+        });
+        console.log(doc);
+        // 设置模板变量的值
+        let tempData = {};
+        tempData.datas = that.tableData;
+        //let temp  = JSON.stringify(tempData);
+        console.log(tempData);
+        doc.setData({
+          datas: that.tableData,
+        });
+        console.log(that.tableData);
+        console.log(doc);
+        try {
+          // 用模板变量的值替换所有模板变量
+          doc.render();
+        } catch (error) {
+          // 抛出异常
+          let e = {
+            message: error.message,
+            name: error.name,
+            stack: error.stack,
+            properties: error.properties,
+          };
+          console.log(JSON.stringify({ error: e }));
+          throw error;
+        }
+
+        // 生成一个代表docxtemplater对象的zip文件（不是一个真实的文件，而是在内存中的表示）
+        let out = doc.getZip().generate({
+          type: "blob",
+          mimeType:
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        });
+        // 将目标文件对象保存为目标类型的文件，并命名
+        saveAs(
+          out,
+          that.fileName.replace(".xlsx", "").replace(".xls", "") +
+          "[done]" +
+          ".docx"
+        );
+      }
+      reader.readAsArrayBuffer(file);
+
     }
   },
 };
